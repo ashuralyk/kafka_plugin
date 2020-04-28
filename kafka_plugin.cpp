@@ -390,10 +390,10 @@ namespace eosio {
     void kafka_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
         uint64_t time = (t.block_time.time_since_epoch().count() / 1000);
         //elog("trxId = ${e}", ("e", t.trace->id));
-        string transaction_metadata_json =
-                "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
-                ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() + "}";
-        producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED, (char *) transaction_metadata_json.c_str());
+        // string transaction_metadata_json =
+        //         "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
+        //         ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() + "}";
+        // producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED, (char *) transaction_metadata_json.c_str());
         // elog("transaction_metadata_json = ${e}",("e",transaction_metadata_json));
 
         if (producer->trx_kafka_get_topic(KAFKA_TRX_TRANSFER) != NULL) {
@@ -429,12 +429,12 @@ namespace eosio {
             auto Result = readonly.abi_bin_to_json(params);
 
             string data_str = fc::json::to_string(Result.args, fc::time_point::maximum());
-            action_info action_info1 = {
-                    .account = action_trace_ptr->act.account,
-                    .name = action_trace_ptr->act.name,
-                    .authorization = action_trace_ptr->act.authorization,
-                    .data_json = data_str
-            };
+            // action_info action_info1 = {
+            //         .account = action_trace_ptr->act.account,
+            //         .name = action_trace_ptr->act.name,
+            //         .authorization = action_trace_ptr->act.authorization,
+            //         .data_json = data_str
+            // };
 
             action_trace_ptr->act.data.resize(data_str.size());
             action_trace_ptr->act.data.assign(data_str.begin(), data_str.end());
@@ -451,7 +451,7 @@ namespace eosio {
                 action_trace_ptr++;
                 continue;
             } else {
-                trace->action_traces.erase(action_trace_ptr);
+                action_trace_ptr = trace->action_traces.erase(action_trace_ptr);
             }
         }
     }
@@ -567,20 +567,21 @@ namespace eosio {
                 auto &chain = my->chain_plug->chain();
                 my->chain_id.emplace(chain.get_chain_id());
 
-                my->accepted_block_connection.emplace(
-                        chain.accepted_block.connect([&](const chain::block_state_ptr &bs) {
-                            my->accepted_block(bs);
-                        }));
+                // my->accepted_block_connection.emplace(
+                //         chain.accepted_block.connect([&](const chain::block_state_ptr &bs) {
+                //             my->accepted_block(bs);
+                //         }));
 
-                my->irreversible_block_connection.emplace(
-                        chain.irreversible_block.connect([&](const chain::block_state_ptr &bs) {
-                            my->applied_irreversible_block(bs);
-                        }));
+                // my->irreversible_block_connection.emplace(
+                //         chain.irreversible_block.connect([&](const chain::block_state_ptr &bs) {
+                //             my->applied_irreversible_block(bs);
+                //         }));
 
-                my->accepted_transaction_connection.emplace(
-                        chain.accepted_transaction.connect([&](const chain::transaction_metadata_ptr &t) {
-                            my->accepted_transaction(t);
-                        }));
+                // my->accepted_transaction_connection.emplace(
+                //         chain.accepted_transaction.connect([&](const chain::transaction_metadata_ptr &t) {
+                //             my->accepted_transaction(t);
+                //         }));
+
                 my->applied_transaction_connection.emplace(
                         chain.applied_transaction.connect(
                                 [&](std::tuple<const chain::transaction_trace_ptr &, const chain::signed_transaction &> t) {
@@ -601,9 +602,9 @@ namespace eosio {
     }
 
     void kafka_plugin::plugin_shutdown() {
-        my->accepted_block_connection.reset();
-        my->irreversible_block_connection.reset();
-        my->accepted_transaction_connection.reset();
+        // my->accepted_block_connection.reset();
+        // my->irreversible_block_connection.reset();
+        // my->accepted_transaction_connection.reset();
         my->applied_transaction_connection.reset();
         my.reset();
     }
