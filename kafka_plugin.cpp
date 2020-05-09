@@ -335,7 +335,7 @@ namespace eosio {
     void kafka_plugin_impl::process_applied_transaction(const trasaction_info_st &t) {
         try {
             if (!start_block_reached) {
-                if (t.block_num >= start_block_num) {
+                if (t.block_number >= start_block_num) {
                     start_block_reached = true;
                 }
             }
