@@ -117,7 +117,7 @@ namespace eosio {
             rd_kafka_poll(rk, 0);
             return KAFKA_STATUS_PRODUCE_FAIL;
         } else {
-            fprintf(stderr, "%% Enqueued message (%zd bytes) for topic %s\n", len, rd_kafka_topic_name(rkt));
+            // fprintf(stderr, "%% Enqueued message (%zd bytes) for topic %s\n", len, rd_kafka_topic_name(rkt));
         }
 
         rd_kafka_poll(rk, 0);
