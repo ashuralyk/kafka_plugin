@@ -180,8 +180,10 @@ namespace eosio {
     }
 
     void kafka_plugin_impl::applied_transaction(const chain::transaction_trace_ptr &t) {
+        elog(">>>> applied_trxId = ${e}", ("e", t->id));
         if (!t->producer_block_id.valid())
             return;
+        elog(">>>> block_num = ${e}", ("e", t->block_num));
         try {
             auto &chain = chain_plug->chain();
             trasaction_info_st transactioninfo = trasaction_info_st{
@@ -190,7 +192,6 @@ namespace eosio {
                     .trace =chain::transaction_trace_ptr(t)
             };
             trasaction_info_st &info_t = transactioninfo;
-            //elog("###trxId = ${e}", ("e", t->id));
             queue(transaction_trace_queue, info_t);
         } catch (fc::exception &e) {
             elog("FC Exception while applied_transaction ${e}", ("e", e.to_string()));
