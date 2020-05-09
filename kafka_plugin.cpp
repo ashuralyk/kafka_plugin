@@ -403,8 +403,8 @@ namespace eosio {
                         "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" +
                         std::to_string(time) +
                         ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() + "}";
-                producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER, (char *) transfer_json.c_str());
-                //elog("transfer_json = ${e}",("e",transfer_json));
+                auto sendRst = producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER, (char *) transfer_json.c_str());
+                elog("transfer_json = ${e}, result = ${r}", ("e",transfer_json)("r", sendRst));
             }
         }
     }
@@ -583,10 +583,12 @@ namespace eosio {
                 //         }));
 
                 my->applied_transaction_connection.emplace(
-                        chain.applied_transaction.connect(
-                                [&](std::tuple<const chain::transaction_trace_ptr &, const chain::signed_transaction &> t) {
-                                    my->applied_transaction(std::get<0>(t));
-                                }));
+                    chain.applied_transaction.connect(
+                        [&](std::tuple<const chain::transaction_trace_ptr &, const chain::signed_transaction &> t) {
+                            my->applied_transaction(std::get<0>(t));
+                        }
+                    )
+                );
                 my->init();
             } else {
                 wlog("eosio::kafka_plugin configured, but no --kafka-uri specified.");
