@@ -409,7 +409,7 @@ namespace eosio {
                         std::to_string(time) +
                         ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() + "}";
                 auto sendRst = producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER, (char *) transfer_json.c_str());
-                // elog("transfer_json = ${e}, result = ${r}", ("e",transfer_json)("r", sendRst));
+                elog("transfer_json = ${e}, result = ${r}", ("e",transfer_json)("r", sendRst));
             }
         }
     }
