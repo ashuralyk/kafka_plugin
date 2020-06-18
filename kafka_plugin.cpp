@@ -168,6 +168,7 @@ namespace eosio {
     }
 
     void kafka_plugin_impl::accepted_transaction(const chain::transaction_metadata_ptr &t) {
+        elog(">>>> accepted_trxId = ${e}", ("e", t->id));
         try {
             queue(transaction_metadata_queue, t);
         } catch (fc::exception &e) {
@@ -180,6 +181,7 @@ namespace eosio {
     }
 
     void kafka_plugin_impl::applied_transaction(const chain::transaction_trace_ptr &t) {
+        elog(">>>> applied_trxId = ${e}", ("e", t->id));
         if (!t->producer_block_id.valid())
             return;
         try {
@@ -191,7 +193,6 @@ namespace eosio {
             };
             trasaction_info_st &info_t = transactioninfo;
             queue(transaction_trace_queue, info_t);
-            // elog(">>>> applied_trxId = ${e}", ("e", t->id));
         } catch (fc::exception &e) {
             elog("FC Exception while applied_transaction ${e}", ("e", e.to_string()));
         } catch (std::exception &e) {
@@ -582,10 +583,10 @@ namespace eosio {
                 //             my->applied_irreversible_block(bs);
                 //         }));
 
-                // my->accepted_transaction_connection.emplace(
-                //         chain.accepted_transaction.connect([&](const chain::transaction_metadata_ptr &t) {
-                //             my->accepted_transaction(t);
-                //         }));
+                my->accepted_transaction_connection.emplace(
+                        chain.accepted_transaction.connect([&](const chain::transaction_metadata_ptr &t) {
+                            my->accepted_transaction(t);
+                        }));
 
                 my->applied_transaction_connection.emplace(
                     chain.applied_transaction.connect(
