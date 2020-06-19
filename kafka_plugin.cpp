@@ -168,7 +168,7 @@ namespace eosio {
     }
 
     void kafka_plugin_impl::accepted_transaction(const chain::transaction_metadata_ptr &t) {
-        elog(">>>> accepted_trxId = ${e}", ("e", t->id));
+        elog(">>>> accepted_trxId = ${e}", ("e", t->packed_trx()->id()));
         try {
             queue(transaction_metadata_queue, t);
         } catch (fc::exception &e) {
