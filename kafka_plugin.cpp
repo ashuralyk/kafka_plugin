@@ -335,7 +335,7 @@ namespace eosio {
     }
 
     void kafka_plugin_impl::process_applied_transaction(const trasaction_info_st &t) {
-        elog(">>>> step 2 id = ${e}", (e, t.trace->id));
+        elog(">>>> step 2 id = ${e}", ("e", t.trace->id));
         try {
             if (!start_block_reached) {
                 if (t.block_number >= start_block_num) {
