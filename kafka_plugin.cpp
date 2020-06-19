@@ -182,8 +182,8 @@ namespace eosio {
 
     void kafka_plugin_impl::applied_transaction(const chain::transaction_trace_ptr &t) {
         elog(">>>> applied_trxId = ${e}", ("e", t->id));
-        if (!t->producer_block_id.valid())
-            return;
+        // if (!t->producer_block_id.valid())
+        //     return;
         elog(">>>> step 1");
         try {
             auto &chain = chain_plug->chain();
