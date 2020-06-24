@@ -181,10 +181,10 @@ namespace eosio {
     }
 
     void kafka_plugin_impl::applied_transaction(const chain::transaction_trace_ptr &t) {
-        elog(">>>> applied_trxId = ${e}", ("e", t->id));
-        // if (!t->producer_block_id.valid())
-        //     return;
-        elog(">>>> step 1");
+        // elog(">>>> applied_trxId = ${e}", ("e", t->id));
+        if (!t->producer_block_id.valid())
+            return;
+        // elog(">>>> step 1");
         try {
             auto &chain = chain_plug->chain();
             trasaction_info_st transactioninfo = trasaction_info_st{
@@ -335,7 +335,7 @@ namespace eosio {
     }
 
     void kafka_plugin_impl::process_applied_transaction(const trasaction_info_st &t) {
-        elog(">>>> step 2 id = ${e}", ("e", t.trace->id));
+        // elog(">>>> step 2 id = ${e}", ("e", t.trace->id));
         try {
             if (!start_block_reached) {
                 if (t.block_number >= start_block_num) {
@@ -396,7 +396,7 @@ namespace eosio {
     }
 
     void kafka_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
-        elog(">>>> step 3");
+        // elog(">>>> step 3");
         uint64_t time = (t.block_time.time_since_epoch().count() / 1000);
         //elog("trxId = ${e}", ("e", t.trace->id));
         // string transaction_metadata_json =
@@ -406,16 +406,16 @@ namespace eosio {
         // elog("transaction_metadata_json = ${e}",("e",transaction_metadata_json));
 
         if (producer->trx_kafka_get_topic(KAFKA_TRX_TRANSFER) != NULL) {
-            elog(">>>> step 4");
+            // elog(">>>> step 4");
             filter_traction_trace(t.trace, N(transfer));
             if (t.trace->action_traces.size() > 0) {
-                elog(">>>> step 5");
+                // elog(">>>> step 5");
                 string transfer_json =
                         "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" +
                         std::to_string(time) +
                         ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() + "}";
                 auto sendRst = producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER, (char *) transfer_json.c_str());
-                elog("transfer_json = ${e}, result = ${r}", ("e",transfer_json)("r", sendRst));
+                // elog("transfer_json = ${e}, result = ${r}", ("e",transfer_json)("r", sendRst));
             }
         }
     }
@@ -475,7 +475,7 @@ namespace eosio {
     }
 
     kafka_plugin_impl::kafka_plugin_impl()
-            : producer(new kafka_producer) {
+            : producer(new kafka_producer(done)) {
     }
 
     kafka_plugin_impl::~kafka_plugin_impl() {

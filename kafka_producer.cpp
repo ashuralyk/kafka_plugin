@@ -110,7 +110,7 @@ namespace eosio {
                     rd_kafka_topic_name(rkt),
                     rd_kafka_err2str(rd_kafka_last_error()));
 
-            if (rd_kafka_last_error() == RD_KAFKA_RESP_ERR__QUEUE_FULL) {
+            if (rd_kafka_last_error() == RD_KAFKA_RESP_ERR__QUEUE_FULL && !done) {
                 rd_kafka_poll(rk, 1000);
                 goto retry;
             }

@@ -15,7 +15,9 @@ namespace eosio {
 
     class kafka_producer {
     public:
-        kafka_producer() {
+        kafka_producer(std::atomic_bool &plugin_done) 
+            : done(plugin_done)
+        {
 
             accept_rk = NULL;
             applied_rk = NULL;
@@ -49,6 +51,7 @@ namespace eosio {
         rd_kafka_conf_t *accept_conf;     /*kafka config*/
         rd_kafka_conf_t *applied_conf;     /*kafka config*/
         rd_kafka_conf_t *transfer_conf;     /*kafka config*/
+        std::atomic_bool &done;
 
         static void dr_msg_cb(rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, void *opaque) {}
     };
