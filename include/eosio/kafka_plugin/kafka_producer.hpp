@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include "rdkafka.h"
 
 namespace eosio {
