@@ -342,7 +342,7 @@ namespace eosio {
         // elog(">>>> step 2 id = ${e}", ("e", t.trace->id));
         try {
             if (!start_block_reached) {
-                if (t.block_num >= start_block_num) {
+                if (t->block_num >= start_block_num) {
                     start_block_reached = true;
                 }
             }
