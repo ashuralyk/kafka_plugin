@@ -53,17 +53,19 @@ namespace eosio {
         fc::optional<boost::signals2::scoped_connection> applied_transaction_connection;
         chain_plugin *chain_plug;
         struct action_info {
+            uint64_t global_sequence;
             account_name account;
             action_name name;
-            vector <permission_level> authorization;
+            vector<permission_level> authorization;
             string data_json;
         };
 
-        struct trasaction_info_st {
-            uint64_t block_number;
-            fc::time_point block_time;
-            chain::transaction_trace_ptr trace;
-            vector <action_info> action_vec;
+        struct transaction_info {
+            transaction_id_type id;
+            uint32_t block_number;
+            block_timestamp_type block_time;
+            fc::optional<transaction_receipt_header> receipt;
+            vector<action_info> actions;
         };
 
         void consume_blocks();
@@ -80,9 +82,9 @@ namespace eosio {
 
         void _process_accepted_transaction(const chain::transaction_metadata_ptr &);
 
-        void process_applied_transaction(const trasaction_info_st &);
+        void process_applied_transaction(const chain::transaction_trace_ptr &);
 
-        void _process_applied_transaction(const trasaction_info_st &);
+        void _process_applied_transaction(const chain::transaction_trace_ptr &);
 
         void process_accepted_block(const chain::block_state_ptr &);
 
@@ -98,6 +100,8 @@ namespace eosio {
 
         void filter_traction_trace(const chain::transaction_trace_ptr trace, action_name act_name);
 
+        transaction_info transform_transaction_trace(const chain::transaction_trace_ptr &trace);
+
         void _process_trace(vector<chain::action_trace>::iterator action_trace_ptr, action_name act_name);
 
         template<typename Queue, typename Entry>
@@ -110,8 +114,8 @@ namespace eosio {
         int queue_sleep_time = 0;
         std::deque<chain::transaction_metadata_ptr> transaction_metadata_queue;
         std::deque<chain::transaction_metadata_ptr> transaction_metadata_process_queue;
-        std::deque<trasaction_info_st> transaction_trace_queue;
-        std::deque<trasaction_info_st> transaction_trace_process_queue;
+        std::deque<chain::transaction_trace_ptr> transaction_trace_queue;
+        std::deque<chain::transaction_trace_ptr> transaction_trace_process_queue;
         std::deque<chain::block_state_ptr> block_state_queue;
         std::deque<chain::block_state_ptr> block_state_process_queue;
         std::deque<chain::block_state_ptr> irreversible_block_state_queue;
@@ -182,18 +186,18 @@ namespace eosio {
 
     void kafka_plugin_impl::applied_transaction(const chain::transaction_trace_ptr &t) {
         // elog(">>>> applied_trxId = ${e}", ("e", t->id));
-        if (!t->producer_block_id.valid())
-            return;
+        // if (!t->producer_block_id.valid())
+        //     return;
         // elog(">>>> step 1");
         try {
-            auto &chain = chain_plug->chain();
-            trasaction_info_st transactioninfo = trasaction_info_st{
-                    .block_number = t->block_num,//chain.pending_block_state()->block_num,
-                    .block_time = chain.pending_block_time(),
-                    .trace =chain::transaction_trace_ptr(t)
-            };
-            trasaction_info_st &info_t = transactioninfo;
-            queue(transaction_trace_queue, info_t);
+            // auto &chain = chain_plug->chain();
+            // trasaction_info_st transactioninfo = trasaction_info_st{
+            //         .block_number = t->block_num,//chain.pending_block_state()->block_num,
+            //         .block_time = chain.pending_block_time(),
+            //         .trace =chain::transaction_trace_ptr(t)
+            // };
+            // trasaction_info_st &info_t = transactioninfo;
+            queue(transaction_trace_queue, chain::transaction_trace_ptr(t));
         } catch (fc::exception &e) {
             elog("FC Exception while applied_transaction ${e}", ("e", e.to_string()));
         } catch (std::exception &e) {
@@ -334,7 +338,7 @@ namespace eosio {
         }
     }
 
-    void kafka_plugin_impl::process_applied_transaction(const trasaction_info_st &t) {
+    void kafka_plugin_impl::process_applied_transaction(const chain::transaction_trace_ptr &t) {
         // elog(">>>> step 2 id = ${e}", ("e", t.trace->id));
         try {
             if (!start_block_reached) {
@@ -395,9 +399,9 @@ namespace eosio {
         producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT, (char *) trx_json.c_str());
     }
 
-    void kafka_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
+    void kafka_plugin_impl::_process_applied_transaction(const chain::transaction_trace_ptr &t) {
         // elog(">>>> step 3");
-        uint64_t time = (t.block_time.time_since_epoch().count() / 1000);
+        // uint64_t time = (t.block_time.time_since_epoch().count() / 1000);
         //elog("trxId = ${e}", ("e", t.trace->id));
         // string transaction_metadata_json =
         //         "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
@@ -406,16 +410,24 @@ namespace eosio {
         // elog("transaction_metadata_json = ${e}",("e",transaction_metadata_json));
 
         if (producer->trx_kafka_get_topic(KAFKA_TRX_TRANSFER) != NULL) {
-            // elog(">>>> step 4");
-            filter_traction_trace(t.trace, N(transfer));
-            if (t.trace->action_traces.size() > 0) {
-                // elog(">>>> step 5");
-                string transfer_json =
-                        "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" +
-                        std::to_string(time) +
-                        ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() + "}";
+            elog(">>>> step 4");
+            // filter_traction_trace(t, N(transfer));
+            // if (t->action_traces.size() > 0) {
+            //     // elog(">>>> step 5");
+            //     string transfer_json = fc::json::to_string(t, fc::time_point::maximum());
+            //             // "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" +
+            //             // std::to_string(time) +
+            //             // ",\"trace\":" + fc::json::to_string(t, fc::time_point::maximum()).c_str() + "}";
+            //     auto sendRst = producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER, (char *) transfer_json.c_str());
+            //     // elog("transfer_json = ${e}, result = ${r}", ("e",transfer_json)("r", sendRst));
+            // }
+
+            transaction_info ti = transform_transaction_trace(t);
+            if (ti.actions.size() > 0)
+            {
+                string transfer_json = fc::json::to_string(ti, fc::time_point::maximum());
+                elog(">>>> json = ${j}", ("j", transfer_json));
                 auto sendRst = producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER, (char *) transfer_json.c_str());
-                // elog("transfer_json = ${e}, result = ${r}", ("e",transfer_json)("r", sendRst));
             }
         }
     }
@@ -467,6 +479,37 @@ namespace eosio {
         }
     }
 
+    transaction_info kafka_plugin_impl::transform_transaction_trace(const chain::transaction_trace_ptr &trace)
+    {
+        transaction_info ti;
+        ti.id = trace->id;
+        ti.block_number = trace->block_num;
+        ti.block_time = trace->block_time;
+        ti.receipt = trace->receipt;
+        for_each(trace->action_traces.begin(), trace->action_traces.end(), [&](const auto &at) {
+            if (at.act.name != N(transfer) || at.receiver != at.act.account)
+            {
+                return;
+            }
+
+            action_info ai;
+            if (at.receipt) {
+                ai.global_sequence = at.receipt.global_sequence;
+            }
+            ai.account = at.act.account;
+            ai.name = at.act.name;
+            ai.authorization = at.act.authorization;
+
+            auto result = chain_plug->get_read_only_api().abi_bin_to_json(chain_apis::read_only::abi_bin_to_json_params {
+                .code = ai.account,
+                .action = ai.name,
+                .binargs = at.act.data
+            });
+            ai.data = fc::json::to_string(result.args, fc::time_point::maximum());
+            ti.actions.emplace_back( ai );
+        });
+        return ti;
+    }
 
     void kafka_plugin_impl::_process_accepted_block(const chain::block_state_ptr &bs) {
     }
@@ -588,10 +631,10 @@ namespace eosio {
                 //             my->applied_irreversible_block(bs);
                 //         }));
 
-                my->accepted_transaction_connection.emplace(
-                        chain.accepted_transaction.connect([&](const chain::transaction_metadata_ptr &t) {
-                            my->accepted_transaction(t);
-                        }));
+                // my->accepted_transaction_connection.emplace(
+                //         chain.accepted_transaction.connect([&](const chain::transaction_metadata_ptr &t) {
+                //             my->accepted_transaction(t);
+                //         }));
 
                 my->applied_transaction_connection.emplace(
                     chain.applied_transaction.connect(
