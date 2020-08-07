@@ -57,14 +57,14 @@ namespace eosio {
             account_name account;
             action_name name;
             vector<permission_level> authorization;
-            string data_json;
+            string data;
         };
 
         struct transaction_info {
             transaction_id_type id;
             uint32_t block_number;
-            block_timestamp_type block_time;
-            fc::optional<transaction_receipt_header> receipt;
+            chain::block_timestamp_type block_time;
+            fc::optional<chain::transaction_receipt_header> receipt;
             vector<action_info> actions;
         };
 
@@ -100,7 +100,7 @@ namespace eosio {
 
         void filter_traction_trace(const chain::transaction_trace_ptr trace, action_name act_name);
 
-        transaction_info transform_transaction_trace(const chain::transaction_trace_ptr &trace);
+        string transform_transaction_trace(const chain::transaction_trace_ptr &trace);
 
         void _process_trace(vector<chain::action_trace>::iterator action_trace_ptr, action_name act_name);
 
@@ -342,7 +342,7 @@ namespace eosio {
         // elog(">>>> step 2 id = ${e}", ("e", t.trace->id));
         try {
             if (!start_block_reached) {
-                if (t.block_number >= start_block_num) {
+                if (t.block_num >= start_block_num) {
                     start_block_reached = true;
                 }
             }
@@ -422,10 +422,9 @@ namespace eosio {
             //     // elog("transfer_json = ${e}, result = ${r}", ("e",transfer_json)("r", sendRst));
             // }
 
-            transaction_info ti = transform_transaction_trace(t);
-            if (ti.actions.size() > 0)
+            string transfer_json = transform_transaction_trace(t);
+            if (transfer_json.size() > 0)
             {
-                string transfer_json = fc::json::to_string(ti, fc::time_point::maximum());
                 elog(">>>> json = ${j}", ("j", transfer_json));
                 auto sendRst = producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER, (char *) transfer_json.c_str());
             }
@@ -479,7 +478,7 @@ namespace eosio {
         }
     }
 
-    transaction_info kafka_plugin_impl::transform_transaction_trace(const chain::transaction_trace_ptr &trace)
+    string kafka_plugin_impl::transform_transaction_trace(const chain::transaction_trace_ptr &trace)
     {
         transaction_info ti;
         ti.id = trace->id;
@@ -494,7 +493,7 @@ namespace eosio {
 
             action_info ai;
             if (at.receipt) {
-                ai.global_sequence = at.receipt.global_sequence;
+                ai.global_sequence = (*at.receipt).global_sequence;
             }
             ai.account = at.act.account;
             ai.name = at.act.name;
@@ -508,7 +507,11 @@ namespace eosio {
             ai.data = fc::json::to_string(result.args, fc::time_point::maximum());
             ti.actions.emplace_back( ai );
         });
-        return ti;
+        if (ti.actions.size() > 0) {
+            return fc::json::to_string(ti, fc::time_point::maximum());
+        } else {
+            return "";
+        }
     }
 
     void kafka_plugin_impl::_process_accepted_block(const chain::block_state_ptr &bs) {
@@ -667,4 +670,6 @@ namespace eosio {
 
 } // namespace eosio
 
-
+#include <fc/reflect/reflect.hpp>
+FC_REFLECT(eosio::kafka_plugin_impl::action_info, (global_sequence)(account)(name)(authorization)(data))
+FC_REFLECT(eosio::kafka_plugin_impl::transaction_info, (id)(block_number)(block_time)(receipt)(actions))
