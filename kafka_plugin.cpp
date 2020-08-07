@@ -410,7 +410,7 @@ namespace eosio {
         // elog("transaction_metadata_json = ${e}",("e",transaction_metadata_json));
 
         if (producer->trx_kafka_get_topic(KAFKA_TRX_TRANSFER) != NULL) {
-            elog(">>>> step 4");
+            // elog(">>>> step 4");
             // filter_traction_trace(t, N(transfer));
             // if (t->action_traces.size() > 0) {
             //     // elog(">>>> step 5");
@@ -425,7 +425,7 @@ namespace eosio {
             string transfer_json = transform_transaction_trace(t);
             if (transfer_json.size() > 0)
             {
-                elog(">>>> json = ${j}", ("j", transfer_json));
+                // elog(">>>> json = ${j}", ("j", transfer_json));
                 auto sendRst = producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER, (char *) transfer_json.c_str());
             }
         }
