@@ -486,7 +486,7 @@ namespace eosio {
         ti.block_time = trace->block_time;
         ti.receipt = trace->receipt;
         for_each(trace->action_traces.begin(), trace->action_traces.end(), [&](const auto &at) {
-            if (at.act.name != N(transfer) || at.receiver != at.act.account || at.receiver == "eidosonecoin" || at.receiver == "eosiopowcoin")
+            if (at.act.name != N(transfer) || at.receiver != at.act.account || at.receiver == N(eidosonecoin) || at.receiver == N(eosiopowcoin))
             {
                 return;
             }
