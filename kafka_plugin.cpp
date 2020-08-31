@@ -54,6 +54,7 @@ namespace eosio {
         chain_plugin *chain_plug;
         struct action_info {
             uint64_t global_sequence;
+            account_name receiver;
             account_name account;
             action_name name;
             vector<permission_level> authorization;
@@ -495,6 +496,7 @@ namespace eosio {
             if (at.receipt) {
                 ai.global_sequence = (*at.receipt).global_sequence;
             }
+            ai.receiver = at.receiver;
             ai.account = at.act.account;
             ai.name = at.act.name;
             ai.authorization = at.act.authorization;
