@@ -54,7 +54,7 @@ namespace eosio {
         chain_plugin *chain_plug;
         struct action_info {
             uint64_t global_sequence;
-            uint64_t recv_sequence;
+            fc::unsigned_int action_ordinal;
             account_name receiver;
             account_name account;
             action_name name;
@@ -496,8 +496,8 @@ namespace eosio {
             action_info ai;
             if (at.receipt) {
                 ai.global_sequence = (*at.receipt).global_sequence;
-                ai.recv_sequence = (*at.receipt).recv_sequence;
             }
+            ai.action_ordinal = at.action_ordinal;
             ai.receiver = at.receiver;
             ai.account = at.act.account;
             ai.name = at.act.name;
@@ -675,5 +675,5 @@ namespace eosio {
 } // namespace eosio
 
 #include <fc/reflect/reflect.hpp>
-FC_REFLECT(eosio::kafka_plugin_impl::action_info, (global_sequence)(account)(name)(authorization)(data))
+FC_REFLECT(eosio::kafka_plugin_impl::action_info, (global_sequence)(action_ordinal)(account)(receiver)(name)(authorization)(data))
 FC_REFLECT(eosio::kafka_plugin_impl::transaction_info, (id)(block_number)(block_time)(receipt)(actions))
