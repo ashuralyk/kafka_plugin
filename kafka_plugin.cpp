@@ -54,6 +54,7 @@ namespace eosio {
         chain_plugin *chain_plug;
         struct action_info {
             uint64_t global_sequence;
+            uint64_t recv_sequence;
             account_name receiver;
             account_name account;
             action_name name;
@@ -495,6 +496,7 @@ namespace eosio {
             action_info ai;
             if (at.receipt) {
                 ai.global_sequence = (*at.receipt).global_sequence;
+                ai.recv_sequence = (*at.receipt).recv_sequence;
             }
             ai.receiver = at.receiver;
             ai.account = at.act.account;
