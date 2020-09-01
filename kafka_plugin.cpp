@@ -129,6 +129,7 @@ namespace eosio {
         std::atomic_bool startup{true};
         fc::optional<chain::chain_id_type> chain_id;
         fc::microseconds abi_serializer_max_time;
+        // std::unordered_map<chain::transaction_id_type, std::unordered_map<fc::unsigned_int, bool>> transaction_flag;
 
         static const account_name newaccount;
         static const account_name setabi;
