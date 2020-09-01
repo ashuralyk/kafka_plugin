@@ -427,7 +427,7 @@ namespace eosio {
             string transfer_json = transform_transaction_trace(t);
             if (transfer_json.size() > 0)
             {
-                elog(">>>> json = ${j}", ("j", transfer_json));
+                // elog(">>>> json = ${j}", ("j", transfer_json));
                 auto sendRst = producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER, (char *) transfer_json.c_str());
             }
         }
