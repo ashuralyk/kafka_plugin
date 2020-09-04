@@ -200,7 +200,9 @@ namespace eosio {
             //         .trace =chain::transaction_trace_ptr(t)
             // };
             // trasaction_info_st &info_t = transactioninfo;
-            queue(transaction_trace_queue, chain::transaction_trace_ptr(t));
+            if (t->receipt || t->receipt.status == chain::transaction_receipt_header::executed) {
+                queue(transaction_trace_queue, chain::transaction_trace_ptr(t));
+            }
         } catch (fc::exception &e) {
             elog("FC Exception while applied_transaction ${e}", ("e", e.to_string()));
         } catch (std::exception &e) {
