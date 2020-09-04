@@ -200,10 +200,10 @@ namespace eosio {
             //         .trace =chain::transaction_trace_ptr(t)
             // };
             // trasaction_info_st &info_t = transactioninfo;
-            if (t->receipt && t->receipt->net_usage_words > 0)
-            {
-                ilog("tx = ${tx}", ("tx", fc::json::to_string(t, fc::time_point::maximum())));
-            }
+            // if (t->receipt && t->receipt->net_usage_words > 0)
+            // {
+            //     ilog("tx = ${tx}", ("tx", fc::json::to_string(t, fc::time_point::maximum())));
+            // }
             if (t->receipt && t->receipt->status == chain::transaction_receipt_header::executed) {
                 queue(transaction_trace_queue, chain::transaction_trace_ptr(t));
             }
