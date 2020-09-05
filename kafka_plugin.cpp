@@ -728,7 +728,7 @@ namespace eosio {
         app().get_plugin<http_plugin>().add_api( api_description {
             {
                 "/v1/kafka/set_log_filter",
-                [&] (string, string body, url_response_callback cb) { return my->set_log_filter_params(move(body), move(cb)); }
+                [&] (string, string body, url_response_callback cb) { return my->set_log_filter(move(body), move(cb)); }
             }
         });
     }
