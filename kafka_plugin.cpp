@@ -23,6 +23,30 @@
 
 #include <queue>
 
+namespace {
+    template <typename T>
+    T parse_body(const string &body)
+    {
+        if (body.empty())
+        {
+            EOS_THROW(invalid_http_request, "A Request body is required");
+        }
+
+        try
+        {
+            try
+            {
+                return fc::json::from_string(body).as<T>();
+            }
+            catch (const chain_exception &e)
+            {
+                throw fc::exception(e);
+            }
+        }
+        EOS_RETHROW_EXCEPTIONS(chain::invalid_http_request, "Unable to parse valid input from POST body");
+    }
+}
+
 namespace fc { class variant; }
 
 namespace eosio {
@@ -70,6 +94,11 @@ namespace eosio {
             vector<action_info> actions;
         };
 
+        struct set_log_filter_params {
+            bool prev;
+            vector<account_name> accounts;
+        };
+
         void consume_blocks();
 
         void accepted_block(const chain::block_state_ptr &);
@@ -106,6 +135,8 @@ namespace eosio {
 
         void _process_trace(vector<chain::action_trace>::iterator action_trace_ptr, action_name act_name);
 
+        void set_log_filter( string &&body, url_response_callback &&cb );
+
         template<typename Queue, typename Entry>
         void queue(Queue &queue, const Entry &e);
 
@@ -141,6 +172,9 @@ namespace eosio {
         static const std::string actions_col;
         static const std::string accounts_col;
         kafka_producer_ptr producer;
+
+        map<account_name, bool> prev_filter;
+        map<account_name, bool> post_filter;
     };
 
     const account_name kafka_plugin_impl::newaccount = chain::newaccount::get_name();
@@ -200,10 +234,10 @@ namespace eosio {
             //         .trace =chain::transaction_trace_ptr(t)
             // };
             // trasaction_info_st &info_t = transactioninfo;
-            // if (t->receipt && t->receipt->net_usage_words > 0)
-            // {
-            //     ilog("tx = ${tx}", ("tx", fc::json::to_string(t, fc::time_point::maximum())));
-            // }
+            if (any_of(t->action_traces.begin(), t->action_traces.end(), [this](const auto &v) { return prev_filter[v.receiver]; }))
+            {
+                ilog(">>>> PREV tx = ${tx}", ("tx", fc::json::to_string(t, fc::time_point::maximum())));
+            }
             if (t->receipt && t->receipt->status == chain::transaction_receipt_header::executed) {
                 queue(transaction_trace_queue, chain::transaction_trace_ptr(t));
             }
@@ -434,7 +468,10 @@ namespace eosio {
             string transfer_json = transform_transaction_trace(t);
             if (transfer_json.size() > 0)
             {
-                // elog(">>>> json = ${j}", ("j", transfer_json));
+                if (any_of(t->action_traces.begin(), t->action_traces.end(), [this](const auto &v) { return post_filter[v.receiver]; }))
+                {
+                    elog(">>>> POST json = ${j}", ("j", transfer_json));
+                }
                 auto sendRst = producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER, (char *) transfer_json.c_str());
             }
         }
@@ -485,6 +522,24 @@ namespace eosio {
                 action_trace_ptr = trace->action_traces.erase(action_trace_ptr);
             }
         }
+    }
+
+    void kafka_plugin_impl::set_log_filter( string &&body, url_response_callback &&cb )
+    {
+        ilog( "set_log_filter invoked" );
+        auto filter = parse_body<set_log_filter_params>( body );
+        if (filter.prev) {
+            prev_filter.clear();
+            for ( const auto &account : filter.accounts ) {
+                prev_filter[account] = true;
+            }
+        } else {
+            post_filter.clear();
+            for ( const auto &account : filter.accounts ) {
+                post_filter[account] = true;
+            }
+        }
+        cb( 200, "ok" );
     }
 
     string kafka_plugin_impl::transform_transaction_trace(const chain::transaction_trace_ptr &trace)
@@ -669,6 +724,12 @@ namespace eosio {
     }
 
     void kafka_plugin::plugin_startup() {
+        app().get_plugin<http_plugin>().add_api( api_description {
+            {
+                "/v1/kafka/set_log_filter",
+                [&] (string, string body, url_response_callback cb) { return my->set_log_filter_params(move(body), move(cb)); }
+            }
+        });
     }
 
     void kafka_plugin::plugin_shutdown() {
@@ -684,3 +745,4 @@ namespace eosio {
 #include <fc/reflect/reflect.hpp>
 FC_REFLECT(eosio::kafka_plugin_impl::action_info, (global_sequence)(action_ordinal)(account)(receiver)(name)(authorization)(data))
 FC_REFLECT(eosio::kafka_plugin_impl::transaction_info, (id)(block_number)(block_time)(receipt)(actions))
+FC_REFLECT(eosio::kafka_plugin_impl::set_log_filter_params, (prev)(accounts))
