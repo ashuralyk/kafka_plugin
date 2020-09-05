@@ -7,6 +7,7 @@
 #include <eosio/kafka_plugin/kafka_producer.hpp>
 #include <eosio/kafka_plugin/kafka_plugin.hpp>
 
+#include <eosio/http_plugin/http_plugin.hpp>
 #include <eosio/chain/eosio_contract.hpp>
 #include <eosio/chain/config.hpp>
 #include <eosio/chain/exceptions.hpp>
@@ -25,11 +26,11 @@
 
 namespace {
     template <typename T>
-    T parse_body(const string &body)
+    T parse_body(const std::string &body)
     {
         if (body.empty())
         {
-            EOS_THROW(invalid_http_request, "A Request body is required");
+            EOS_THROW(eosio::chain::invalid_http_request, "A Request body is required");
         }
 
         try
@@ -38,12 +39,12 @@ namespace {
             {
                 return fc::json::from_string(body).as<T>();
             }
-            catch (const chain_exception &e)
+            catch (const eosio::chain::chain_exception &e)
             {
                 throw fc::exception(e);
             }
         }
-        EOS_RETHROW_EXCEPTIONS(chain::invalid_http_request, "Unable to parse valid input from POST body");
+        EOS_RETHROW_EXCEPTIONS(eosio::chain::invalid_http_request, "Unable to parse valid input from POST body");
     }
 }
 
