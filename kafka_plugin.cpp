@@ -212,7 +212,7 @@ namespace eosio {
     }
 
     template<typename Queue>
-    void kafka_plugin_impl::queue(Queue &queue, Queue &q) {
+    void kafka_plugin_impl::queue2(Queue &queue, Queue &q) {
         std::unique_lock<std::mutex> lock(mtx);
         auto queue_size = queue.size() + q.size();
         if (queue_size > max_queue_size) {
@@ -292,10 +292,10 @@ namespace eosio {
     void kafka_plugin_impl::accepted_block(const chain::block_state_ptr &bs) {
         try {
             // queue(block_state_queue, bs);
-            uint32_t block_num = bs.block->block_num() - 2;
+            uint32_t block_num = bs->block->block_num() - 2;
             if (auto i = transaction_trace_await_map.find(block_num); i != transaction_trace_await_map.end()) {
                 std::unique_lock<std::mutex> lock(mtx_await);
-                queue(transaction_trace_queue, i->second);
+                queue2(transaction_trace_queue, i->second);
                 transaction_trace_await_map.erase(i);
             }
         } catch (fc::exception &e) {
