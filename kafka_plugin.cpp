@@ -150,11 +150,13 @@ namespace eosio {
         std::deque<chain::transaction_metadata_ptr> transaction_metadata_process_queue;
         std::deque<chain::transaction_trace_ptr> transaction_trace_queue;
         std::deque<chain::transaction_trace_ptr> transaction_trace_process_queue;
+        std::map<uint32_t, std::deque<chain::transaction_trace_ptr>> transaction_trace_await_map;
         std::deque<chain::block_state_ptr> block_state_queue;
         std::deque<chain::block_state_ptr> block_state_process_queue;
         std::deque<chain::block_state_ptr> irreversible_block_state_queue;
         std::deque<chain::block_state_ptr> irreversible_block_state_process_queue;
         std::mutex mtx;
+        std::mutex mtx_await;
         std::condition_variable condition;
         std::thread consume_thread;
         std::atomic_bool done{false};
@@ -209,6 +211,27 @@ namespace eosio {
         condition.notify_one();
     }
 
+    template<typename Queue>
+    void kafka_plugin_impl::queue(Queue &queue, Queue &q) {
+        std::unique_lock<std::mutex> lock(mtx);
+        auto queue_size = queue.size() + q.size();
+        if (queue_size > max_queue_size) {
+            lock.unlock();
+            condition.notify_one();
+            queue_sleep_time += 10 * q.size();
+            if (queue_sleep_time > 1000)
+                wlog("queue size: ${q}", ("q", queue_size));
+            std::this_thread::sleep_for(std::chrono::milliseconds(queue_sleep_time));
+            lock.lock();
+        } else {
+            queue_sleep_time -= 10 * q.size();
+            if (queue_sleep_time < 0) queue_sleep_time = 0;
+        }
+        queue.insert(q.begin(), q.end());
+        lock.unlock();
+        condition.notify_one();
+    }
+
     void kafka_plugin_impl::accepted_transaction(const chain::transaction_metadata_ptr &t) {
         // elog(">>>> accepted_trxId = ${e}", ("e", t->packed_trx()->id()));
         try {
@@ -240,7 +263,9 @@ namespace eosio {
                 ilog(">>>> PREV tx = ${tx}", ("tx", fc::json::to_string(t, fc::time_point::maximum())));
             }
             if (t->receipt && t->receipt->status == chain::transaction_receipt_header::executed) {
-                queue(transaction_trace_queue, chain::transaction_trace_ptr(t));
+                // queue(transaction_trace_queue, chain::transaction_trace_ptr(t));
+                std::unique_lock<std::mutex> lock(mtx_await);
+                transaction_trace_await_map[t->block_num].emplace_back(chain::transaction_trace_ptr(t));
             }
         } catch (fc::exception &e) {
             elog("FC Exception while applied_transaction ${e}", ("e", e.to_string()));
@@ -266,7 +291,13 @@ namespace eosio {
 
     void kafka_plugin_impl::accepted_block(const chain::block_state_ptr &bs) {
         try {
-            queue(block_state_queue, bs);
+            // queue(block_state_queue, bs);
+            uint32_t block_num = bs.block->block_num() - 2;
+            if (auto i = transaction_trace_await_map.find(block_num); i != transaction_trace_await_map.end()) {
+                std::unique_lock<std::mutex> lock(mtx_await);
+                queue(transaction_trace_queue, i->second);
+                transaction_trace_await_map.erase(i);
+            }
         } catch (fc::exception &e) {
             elog("FC Exception while accepted_block ${e}", ("e", e.to_string()));
         } catch (std::exception &e) {
@@ -691,10 +722,10 @@ namespace eosio {
                 auto &chain = my->chain_plug->chain();
                 my->chain_id.emplace(chain.get_chain_id());
 
-                // my->accepted_block_connection.emplace(
-                //         chain.accepted_block.connect([&](const chain::block_state_ptr &bs) {
-                //             my->accepted_block(bs);
-                //         }));
+                my->accepted_block_connection.emplace(
+                        chain.accepted_block.connect([&](const chain::block_state_ptr &bs) {
+                            my->accepted_block(bs);
+                        }));
 
                 // my->irreversible_block_connection.emplace(
                 //         chain.irreversible_block.connect([&](const chain::block_state_ptr &bs) {
