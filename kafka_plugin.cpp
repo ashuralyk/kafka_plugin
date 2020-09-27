@@ -141,6 +141,9 @@ namespace eosio {
         template<typename Queue, typename Entry>
         void queue(Queue &queue, const Entry &e);
 
+        template<typename Queue>
+        void queue2(Queue &queue, const Queue &e);
+
         uint32_t start_block_num = 0;
         bool start_block_reached = false;
 
@@ -211,8 +214,8 @@ namespace eosio {
         condition.notify_one();
     }
 
-    template<typename Queue, typename QueueTwo>
-    void kafka_plugin_impl::queue2(Queue &queue, const QueueTwo &q) {
+    template<typename Queue>
+    void kafka_plugin_impl::queue2(Queue &queue, const Queue &q) {
         std::unique_lock<std::mutex> lock(mtx);
         auto queue_size = queue.size() + q.size();
         if (queue_size > max_queue_size) {
