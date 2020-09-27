@@ -230,7 +230,9 @@ namespace eosio {
             queue_sleep_time -= 10 * q.size();
             if (queue_sleep_time < 0) queue_sleep_time = 0;
         }
-        queue.insert(q.begin(), q.end());
+        for_each(q.begin(), q.end(), [&queue](auto &v) {
+            queue.emplace_back(v);
+        });
         lock.unlock();
         condition.notify_one();
     }
