@@ -145,6 +145,7 @@ namespace eosio {
         void queue2(Queue &queue, const Queue &e);
 
         uint32_t start_block_num = 0;
+        uint32_t blocks_behind = 0;
         bool start_block_reached = false;
 
         size_t max_queue_size = 10000;
@@ -297,7 +298,7 @@ namespace eosio {
     void kafka_plugin_impl::accepted_block(const chain::block_state_ptr &bs) {
         try {
             // queue(block_state_queue, bs);
-            uint32_t block_num = bs->block->block_num() - 2;
+            uint32_t block_num = bs->block->block_num() - blocks_behind;
             if (auto i = transaction_trace_await_map.find(block_num); i != transaction_trace_await_map.end()) {
                 std::unique_lock<std::mutex> lock(mtx_await);
                 queue2(transaction_trace_queue, i->second);
@@ -672,7 +673,9 @@ namespace eosio {
                 ("kafka-queue-size", bpo::value<uint32_t>()->default_value(256),
                  "The target queue size between nodeos and kafka plugin thread.")
                 ("kafka-block-start", bpo::value<uint32_t>()->default_value(256),
-                 "If specified then only abi data pushed to kafka until specified block is reached.");
+                 "If specified then only abi data pushed to kafka until specified block is reached.")
+                ("kafka-block-behind", bpo::value<uint32_t>()->default_value(2),
+                 "If specified then transactions will be sent to kafka behind specified block number.");
     }
 
     void kafka_plugin::plugin_initialize(const variables_map &options) {
@@ -715,6 +718,9 @@ namespace eosio {
                 }
                 if (options.count("kafka-block-start")) {
                     my->start_block_num = options.at("kafka-block-start").as<uint32_t>();
+                }
+                if (options.count("kafka-block-behind")) {
+                    my->blocks_behind = options.at("kafka-block-behind").as<uint32_t>();
                 }
                 if (my->start_block_num == 0) {
                     my->start_block_reached = true;
