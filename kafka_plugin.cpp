@@ -154,7 +154,8 @@ namespace eosio {
         std::deque<chain::transaction_metadata_ptr> transaction_metadata_process_queue;
         std::deque<chain::transaction_trace_ptr> transaction_trace_queue;
         std::deque<chain::transaction_trace_ptr> transaction_trace_process_queue;
-        std::map<uint32_t, std::deque<chain::transaction_trace_ptr>> transaction_trace_await_map;
+        std::map<chain::block_id_type, std::deque<chain::transaction_trace_ptr>> transaction_trace_await_map;
+        std::map<uint32_t, chain::block_id_type> block_num_id_map;
         std::deque<chain::block_state_ptr> block_state_queue;
         std::deque<chain::block_state_ptr> block_state_process_queue;
         std::deque<chain::block_state_ptr> irreversible_block_state_queue;
@@ -271,7 +272,7 @@ namespace eosio {
             if (t->receipt && t->receipt->status == chain::transaction_receipt_header::executed) {
                 // queue(transaction_trace_queue, chain::transaction_trace_ptr(t));
                 std::unique_lock<std::mutex> lock(mtx_await);
-                transaction_trace_await_map[t->block_num].emplace_back(chain::transaction_trace_ptr(t));
+                transaction_trace_await_map[*t->producer_block_id].emplace_back(chain::transaction_trace_ptr(t));
             }
         } catch (fc::exception &e) {
             elog("FC Exception while applied_transaction ${e}", ("e", e.to_string()));
@@ -298,11 +299,23 @@ namespace eosio {
     void kafka_plugin_impl::accepted_block(const chain::block_state_ptr &bs) {
         try {
             // queue(block_state_queue, bs);
-            uint32_t block_num = bs->block->block_num() - blocks_behind;
-            if (auto i = transaction_trace_await_map.find(block_num); i != transaction_trace_await_map.end()) {
-                std::unique_lock<std::mutex> lock(mtx_await);
-                queue2(transaction_trace_queue, i->second);
-                transaction_trace_await_map.erase(i);
+            auto top_block_num = bs->block->block_num();
+            if (block_num_id_map.count(top_block_num) > 0) {
+                auto prev_block_id = block_num_id_map[top_block_num];
+                if (prev_block_id != bs->block->id()) {
+                    transaction_trace_await_map.erase(prev_block_id);
+                }
+            }
+            block_num_id_map[top_block_num] = bs->block->id();
+            auto apply_block_num = top_block_num - blocks_behind;
+            if (block_num_id_map.count(apply_block_num) > 0) {
+                auto block_id = block_num_id_map[block_num_id_map];
+                if (auto i = transaction_trace_await_map.find(block_id); i != transaction_trace_await_map.end()) {
+                    std::unique_lock<std::mutex> lock(mtx_await);
+                    queue2(transaction_trace_queue, i->second);
+                    transaction_trace_await_map.erase(i);
+                }
+                block_num_id_map.erase(apply_block_num);
             }
         } catch (fc::exception &e) {
             elog("FC Exception while accepted_block ${e}", ("e", e.to_string()));
@@ -674,7 +687,7 @@ namespace eosio {
                  "The target queue size between nodeos and kafka plugin thread.")
                 ("kafka-block-start", bpo::value<uint32_t>()->default_value(256),
                  "If specified then only abi data pushed to kafka until specified block is reached.")
-                ("kafka-block-behind", bpo::value<uint32_t>()->default_value(2),
+                ("kafka-block-behind", bpo::value<uint32_t>()->default_value(4),
                  "If specified then transactions will be sent to kafka behind specified block number.");
     }
 
