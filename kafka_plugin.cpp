@@ -303,13 +303,14 @@ namespace eosio {
             if (block_num_id_map.count(top_block_num) > 0) {
                 auto prev_block_id = block_num_id_map[top_block_num];
                 if (prev_block_id != bs->block->id()) {
+                    wlog("block_id switched (p: ${p}, c: ${c})", ("p", prev_block_id)("c", bs->block->id()));
                     transaction_trace_await_map.erase(prev_block_id);
                 }
             }
             block_num_id_map[top_block_num] = bs->block->id();
             auto apply_block_num = top_block_num - blocks_behind;
             if (block_num_id_map.count(apply_block_num) > 0) {
-                auto block_id = block_num_id_map[block_num_id_map];
+                auto block_id = block_num_id_map[apply_block_num];
                 if (auto i = transaction_trace_await_map.find(block_id); i != transaction_trace_await_map.end()) {
                     std::unique_lock<std::mutex> lock(mtx_await);
                     queue2(transaction_trace_queue, i->second);
@@ -687,7 +688,7 @@ namespace eosio {
                  "The target queue size between nodeos and kafka plugin thread.")
                 ("kafka-block-start", bpo::value<uint32_t>()->default_value(256),
                  "If specified then only abi data pushed to kafka until specified block is reached.")
-                ("kafka-block-behind", bpo::value<uint32_t>()->default_value(4),
+                ("kafka-block-behind", bpo::value<uint32_t>()->default_value(6),
                  "If specified then transactions will be sent to kafka behind specified block number.");
     }
 
