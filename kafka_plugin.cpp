@@ -270,9 +270,9 @@ namespace eosio {
                 ilog(">>>> PREV tx = ${tx}", ("tx", fc::json::to_string(t, fc::time_point::maximum())));
             }
             if (t->receipt && t->receipt->status == chain::transaction_receipt_header::executed) {
-                queue(transaction_trace_queue, chain::transaction_trace_ptr(t));
-                // std::unique_lock<std::mutex> lock(mtx_await);
-                // transaction_trace_await_map[*t->producer_block_id].emplace_back(chain::transaction_trace_ptr(t));
+                // queue(transaction_trace_queue, chain::transaction_trace_ptr(t));
+                std::unique_lock<std::mutex> lock(mtx_await);
+                transaction_trace_await_map[*t->producer_block_id].emplace_back(chain::transaction_trace_ptr(t));
             }
         } catch (fc::exception &e) {
             elog("FC Exception while applied_transaction ${e}", ("e", e.to_string()));
@@ -747,10 +747,10 @@ namespace eosio {
                 auto &chain = my->chain_plug->chain();
                 my->chain_id.emplace(chain.get_chain_id());
 
-                // my->accepted_block_connection.emplace(
-                //         chain.accepted_block.connect([&](const chain::block_state_ptr &bs) {
-                //             my->accepted_block(bs);
-                //         }));
+                my->accepted_block_connection.emplace(
+                        chain.accepted_block.connect([&](const chain::block_state_ptr &bs) {
+                            my->accepted_block(bs);
+                        }));
 
                 // my->irreversible_block_connection.emplace(
                 //         chain.irreversible_block.connect([&](const chain::block_state_ptr &bs) {
