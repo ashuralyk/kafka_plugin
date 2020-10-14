@@ -315,8 +315,10 @@ namespace eosio {
                     std::unique_lock<std::mutex> lock(mtx_await);
                     queue2(transaction_trace_queue, i->second);
                     transaction_trace_await_map.erase(i);
+                    wlog("transaction_trace_await_map size = ${s}, erased block_id = ${i}", ("s", transaction_trace_await_map.size())("i", block_id));
                 }
                 block_num_id_map.erase(apply_block_num);
+                wlog("block_num_id_map size = ${s}, erased num = ${n}", ("s", block_num_id_map.size())("n", apply_block_num));
             }
         } catch (fc::exception &e) {
             elog("FC Exception while accepted_block ${e}", ("e", e.to_string()));
