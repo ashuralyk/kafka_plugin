@@ -304,6 +304,7 @@ namespace eosio {
                 auto prev_block_id = block_num_id_map[top_block_num];
                 if (prev_block_id != bs->block->id()) {
                     wlog("block_id switched (p: ${p}, c: ${c})", ("p", prev_block_id)("c", bs->block->id()));
+                    std::unique_lock<std::mutex> lock(mtx_await);
                     transaction_trace_await_map.erase(prev_block_id);
                 }
             }
@@ -311,8 +312,8 @@ namespace eosio {
             auto apply_block_num = top_block_num - blocks_behind;
             if (block_num_id_map.count(apply_block_num) > 0) {
                 auto block_id = block_num_id_map[apply_block_num];
+                std::unique_lock<std::mutex> lock(mtx_await);
                 if (auto i = transaction_trace_await_map.find(block_id); i != transaction_trace_await_map.end()) {
-                    std::unique_lock<std::mutex> lock(mtx_await);
                     queue2(transaction_trace_queue, i->second);
                     transaction_trace_await_map.erase(i);
                     wlog("transaction_trace_await_map size = ${s}, erased block_id = ${i}", ("s", transaction_trace_await_map.size())("i", block_id));
@@ -507,7 +508,7 @@ namespace eosio {
         // elog("transaction_metadata_json = ${e}",("e",transaction_metadata_json));
 
         if (producer->trx_kafka_get_topic(KAFKA_TRX_TRANSFER) != NULL) {
-            // elog(">>>> step 4");
+            elog(">>>> step 4");
             // filter_traction_trace(t, N(transfer));
             // if (t->action_traces.size() > 0) {
             //     // elog(">>>> step 5");
@@ -531,8 +532,7 @@ namespace eosio {
         }
     }
 
-    void
-    kafka_plugin_impl::_process_trace(vector<chain::action_trace>::iterator action_trace_ptr, action_name act_name) {
+    void kafka_plugin_impl::_process_trace(vector<chain::action_trace>::iterator action_trace_ptr, action_name act_name) {
         /*auto inline_trace_ptr = action_trace_ptr->inline_traces.begin();
         for(;inline_trace_ptr!=action_trace_ptr->inline_traces.end();inline_trace_ptr++){
             //elog("inline action:");
@@ -690,7 +690,7 @@ namespace eosio {
                  "The target queue size between nodeos and kafka plugin thread.")
                 ("kafka-block-start", bpo::value<uint32_t>()->default_value(256),
                  "If specified then only abi data pushed to kafka until specified block is reached.")
-                ("kafka-block-behind", bpo::value<uint32_t>()->default_value(6),
+                ("kafka-block-behind", bpo::value<uint32_t>()->default_value(3),
                  "If specified then transactions will be sent to kafka behind specified block number.");
     }
 
