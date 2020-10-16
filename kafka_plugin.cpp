@@ -508,7 +508,7 @@ namespace eosio {
         // elog("transaction_metadata_json = ${e}",("e",transaction_metadata_json));
 
         if (producer->trx_kafka_get_topic(KAFKA_TRX_TRANSFER) != NULL) {
-            elog(">>>> step 4");
+            // elog(">>>> step 4");
             // filter_traction_trace(t, N(transfer));
             // if (t->action_traces.size() > 0) {
             //     // elog(">>>> step 5");
