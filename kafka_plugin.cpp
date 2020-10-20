@@ -161,7 +161,6 @@ namespace eosio {
         std::deque<chain::block_state_ptr> irreversible_block_state_queue;
         std::deque<chain::block_state_ptr> irreversible_block_state_process_queue;
         std::mutex mtx;
-        std::mutex mtx_await;
         std::condition_variable condition;
         std::thread consume_thread;
         std::atomic_bool done{false};
@@ -271,7 +270,7 @@ namespace eosio {
             }
             if (t->receipt && t->receipt->status == chain::transaction_receipt_header::executed) {
                 // queue(transaction_trace_queue, chain::transaction_trace_ptr(t));
-                std::unique_lock<std::mutex> lock(mtx_await);
+                std::unique_lock<std::mutex> lock(mtx);
                 transaction_trace_await_map[*t->producer_block_id].emplace_back(chain::transaction_trace_ptr(t));
             }
         } catch (fc::exception &e) {
@@ -304,7 +303,7 @@ namespace eosio {
                 auto prev_block_id = block_num_id_map[top_block_num];
                 if (prev_block_id != bs->block->id()) {
                     wlog("block_id switched (p: ${p}, c: ${c})", ("p", prev_block_id)("c", bs->block->id()));
-                    std::unique_lock<std::mutex> lock(mtx_await);
+                    std::unique_lock<std::mutex> lock(mtx);
                     transaction_trace_await_map.erase(prev_block_id);
                 }
             }
@@ -312,7 +311,7 @@ namespace eosio {
             auto apply_block_num = top_block_num - blocks_behind;
             if (block_num_id_map.count(apply_block_num) > 0) {
                 auto block_id = block_num_id_map[apply_block_num];
-                std::unique_lock<std::mutex> lock(mtx_await);
+                std::unique_lock<std::mutex> lock(mtx);
                 if (auto i = transaction_trace_await_map.find(block_id); i != transaction_trace_await_map.end()) {
                     queue2(transaction_trace_queue, i->second);
                     transaction_trace_await_map.erase(i);
@@ -749,10 +748,10 @@ namespace eosio {
                 auto &chain = my->chain_plug->chain();
                 my->chain_id.emplace(chain.get_chain_id());
 
-                my->accepted_block_connection.emplace(
-                        chain.accepted_block.connect([&](const chain::block_state_ptr &bs) {
-                            my->accepted_block(bs);
-                        }));
+                // my->accepted_block_connection.emplace(
+                //         chain.accepted_block.connect([&](const chain::block_state_ptr &bs) {
+                //             my->accepted_block(bs);
+                //         }));
 
                 // my->irreversible_block_connection.emplace(
                 //         chain.irreversible_block.connect([&](const chain::block_state_ptr &bs) {
