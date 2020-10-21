@@ -161,6 +161,7 @@ namespace eosio {
         std::deque<chain::block_state_ptr> irreversible_block_state_queue;
         std::deque<chain::block_state_ptr> irreversible_block_state_process_queue;
         std::mutex mtx;
+        std::mutex mtx_await;
         std::condition_variable condition;
         std::thread consume_thread;
         std::atomic_bool done{false};
@@ -270,7 +271,7 @@ namespace eosio {
             }
             if (t->receipt && t->receipt->status == chain::transaction_receipt_header::executed) {
                 // queue(transaction_trace_queue, chain::transaction_trace_ptr(t));
-                std::unique_lock<std::mutex> lock(mtx);
+                std::unique_lock<std::mutex> lock(mtx_await);
                 transaction_trace_await_map[*t->producer_block_id].emplace_back(chain::transaction_trace_ptr(t));
             }
         } catch (fc::exception &e) {
@@ -298,12 +299,13 @@ namespace eosio {
     void kafka_plugin_impl::accepted_block(const chain::block_state_ptr &bs) {
         try {
             // queue(block_state_queue, bs);
+            std::deque<chain::transaction_trace_ptr> transaction_trace_queue_tmp;
             auto top_block_num = bs->block->block_num();
             if (block_num_id_map.count(top_block_num) > 0) {
                 auto prev_block_id = block_num_id_map[top_block_num];
                 if (prev_block_id != bs->block->id()) {
                     wlog("block_id switched (p: ${p}, c: ${c})", ("p", prev_block_id)("c", bs->block->id()));
-                    std::unique_lock<std::mutex> lock(mtx);
+                    std::unique_lock<std::mutex> lock(mtx_await);
                     transaction_trace_await_map.erase(prev_block_id);
                 }
             }
@@ -311,10 +313,12 @@ namespace eosio {
             auto apply_block_num = top_block_num - blocks_behind;
             if (block_num_id_map.count(apply_block_num) > 0) {
                 auto block_id = block_num_id_map[apply_block_num];
-                std::unique_lock<std::mutex> lock(mtx);
+                std::unique_lock<std::mutex> lock(mtx_await);
                 if (auto i = transaction_trace_await_map.find(block_id); i != transaction_trace_await_map.end()) {
-                    queue2(transaction_trace_queue, i->second);
+                    transaction_trace_queue_tmp = move(i->second);
                     transaction_trace_await_map.erase(i);
+                    lock.unlock();
+                    queue2(transaction_trace_queue, transaction_trace_queue_tmp);
                     wlog("transaction_trace_await_map size = ${s}, erased block_id = ${i}", ("s", transaction_trace_await_map.size())("i", block_id));
                 }
                 block_num_id_map.erase(apply_block_num);
