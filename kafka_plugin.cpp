@@ -146,6 +146,7 @@ namespace eosio {
 
         uint32_t start_block_num = 0;
         uint32_t blocks_behind = 0;
+        uint32_t head_blocks_num = 0;
         bool start_block_reached = false;
 
         size_t max_queue_size = 10000;
@@ -254,8 +255,8 @@ namespace eosio {
 
     void kafka_plugin_impl::applied_transaction(const chain::transaction_trace_ptr &t) {
         // elog(">>>> applied_trxId = ${e}", ("e", t->id));
-        // if (!t->producer_block_id.valid())
-        //     return;
+        if (! t->producer_block_id.valid())
+            return;
         // elog(">>>> step 1");
         try {
             // auto &chain = chain_plug->chain();
@@ -271,8 +272,24 @@ namespace eosio {
             }
             if (t->receipt && t->receipt->status == chain::transaction_receipt_header::executed) {
                 // queue(transaction_trace_queue, chain::transaction_trace_ptr(t));
-                std::unique_lock<std::mutex> lock(mtx_await);
-                transaction_trace_await_map[*t->producer_block_id].emplace_back(chain::transaction_trace_ptr(t));
+                // std::unique_lock<std::mutex> lock(mtx_await);
+                head_blocks_num = t->block_num;
+                block_num_id_map[head_blocks_num] = t->producer_block_id;
+                transaction_trace_await_map[t->producer_block_id].emplace_back(chain::transaction_trace_ptr(t));
+                if (block_num_id_map.count(head_blocks_num - blocks_behind) == 0) {
+                    return;
+                }
+                auto block_num = head_blocks_num - blocks_behind;
+                const auto &block_id = block_num_id_map[block_num];
+                if (transaction_trace_await_map.count(block_id)) {
+                    if (chain_plug->chain().fetch_block_by_id(block_id)) {
+                        queue2(transaction_trace_queue, transaction_trace_await_map[block_id]);
+                    }
+                    transaction_trace_await_map.erase(block_id);
+                    wlog("transaction_trace_await_map size = ${s}, erased block_id = ${i}", ("s", transaction_trace_await_map.size())("i", block_id));
+                }
+                block_num_id_map.erase(block_num);
+                wlog("block_num_id_map size = ${s}, erased num = ${n}", ("s", block_num_id_map.size())("n", block_num));
             }
         } catch (fc::exception &e) {
             elog("FC Exception while applied_transaction ${e}", ("e", e.to_string()));
@@ -752,10 +769,10 @@ namespace eosio {
                 auto &chain = my->chain_plug->chain();
                 my->chain_id.emplace(chain.get_chain_id());
 
-                my->accepted_block_connection.emplace(
-                        chain.accepted_block.connect([&](const chain::block_state_ptr &bs) {
-                            my->accepted_block(bs);
-                        }));
+                // my->accepted_block_connection.emplace(
+                //         chain.accepted_block.connect([&](const chain::block_state_ptr &bs) {
+                //             my->accepted_block(bs);
+                //         }));
 
                 // my->irreversible_block_connection.emplace(
                 //         chain.irreversible_block.connect([&](const chain::block_state_ptr &bs) {
