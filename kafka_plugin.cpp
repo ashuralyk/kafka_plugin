@@ -274,8 +274,8 @@ namespace eosio {
                 // queue(transaction_trace_queue, chain::transaction_trace_ptr(t));
                 // std::unique_lock<std::mutex> lock(mtx_await);
                 head_blocks_num = t->block_num;
-                block_num_id_map[head_blocks_num] = t->producer_block_id;
-                transaction_trace_await_map[t->producer_block_id].emplace_back(chain::transaction_trace_ptr(t));
+                block_num_id_map[head_blocks_num] = *(t->producer_block_id);
+                transaction_trace_await_map[*(t->producer_block_id)].emplace_back(chain::transaction_trace_ptr(t));
                 if (block_num_id_map.count(head_blocks_num - blocks_behind) == 0) {
                     return;
                 }
