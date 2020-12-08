@@ -10,7 +10,7 @@ target_include_directories(kafka_plugin
           PUBLIC "include"
           )
   target_link_libraries(kafka_plugin
-          PUBLIC chain_plugin eosio_chain appbase fc
+          PUBLIC chain_plugin eosio_chain appbase fc http_plugin
           )
 
   message("mongo_db_plugin not selected and will be omitted.")
